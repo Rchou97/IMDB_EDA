@@ -1,0 +1,163 @@
+---
+title: "Assignment EDA"
+group members: Richard Chou
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+---
+
+For this assignment, we are using the IMDB dataset. IMDB is one of the biggest movie rating websites in the world. The website stored almost every movie that has ever been released or that is on the planning to be released. The website stored more than 6 million titles with different types of information: movie director, movie cast, ratings, ratings, etc. IMDB is owned by Amazon since 1998. 
+
+```{r}
+library(tidyverse)
+library(dlookr)
+
+IMDB <- read_csv("data/IMDB.csv")
+str(IMDB)
+```
+
+Missing values are frequently encountered within a big dataset. Before we analyse and visualise the data, the following script is applied for filtering out all the rows that contain at least one NA value. This to have a complete dataset that can be used for data analysis. Besides removing all the rows with NA, we will also remove the columns which we will not use for this analysis anyways.   
+
+```{r}
+IMDB <- IMDB %>% drop_na()
+IMDB <- select(IMDB, -actor_2_facebook_likes, -plot_keywords, -movie_imdb_link, -actor_1_facebook_likes, -actor_3_facebook_likes, -cast_total_facebook_likes, -facenumber_in_poster, -aspect_ratio, -director_facebook_likes, -num_user_for_reviews, -num_voted_users, -num_critic_for_reviews, -movie_facebook_likes)
+IMDB[1:50,]
+```
+
+The top 10 movies based on the clean dataset is the following: 
+
+```{r}
+IMDB %>%
+    select(movie_title, director_name, imdb_score, duration, genres) %>%
+    top_n(10, imdb_score) %>% 
+    arrange(desc(imdb_score)) %>%
+    head(10)
+```
+
+To compute the statistics of the numerical variables we are using summary():
+
+```{r}
+summary(IMDB)
+```
+
+**Individual histograms**
+We are going to plot some histograms of the numerical variables from the IMDB dataset, which in this case are the Duration, Year, and the IMDB ratings.  
+
+```{r}
+ggplot(data = IMDB, aes(x = duration)) +
+  geom_histogram(binwidth = 0.5) + 
+  xlim(c(0, quantile(IMDB$duration, 1))) + 
+  labs(title = "Movies duration histogram", x = "Duration", y = "Count") 
+```
+```{r}
+ggplot(data = IMDB, aes(x = title_year)) +
+  geom_histogram(binwidth = 0.5, fill = "grey", color = "black") + 
+  labs(title = "Produced movies per year", x = "Year", y = "Count") 
+```
+
+```{r}
+ggplot(data = IMDB, aes(x = imdb_score)) +
+  geom_histogram(binwidth = 0.1, fill = "grey", color = "black") + 
+  labs(title = "IMDB rating histogram", x = "IMDB rating", y = "Count") + 
+  scale_x_continuous(breaks = seq(0,10,1))
+```
+We can draw some conclusions from the individual histograms: 
+
+1. The duration and IMDB score both look normal distributed. 
+2. The distribution of the years has been growing exponentially throughout the years.
+3. Most movies have an average duration of 110 minutes. 
+4. Most movies receive a rating of 6.5. 
+
+**Univariate Exploratory Data Analysis**
+
+For the numerical values, we can plot a correlation matrix to see which variables are related to each other: 
+
+```{r}
+plot_correlate(IMDB)
+title('Correlation matrix IMDB
+      ')
+```
+
+Based on the correlation matrix, we can notice the following items:
+
+1. There is a relationship between the duration and the IMDB score.
+2. There is no correlation between the duration and year of the movie that has been produced. 
+3. There is also no correlation the year and IMDB score of the movie. 
+
+To find out more about the positive correlation, we will see if movies with a longer or shorter duration have better ratings on IMDB. 
+
+```{r}
+IMDB %>%
+    group_by(movie_title) %>%
+    unique() %>%
+    ggplot(aes(duration, imdb_score)) +
+    geom_point(alpha = 0.1, color="Red") +
+    scale_y_continuous(breaks=seq(0,10,1)) +
+    scale_x_continuous(breaks=seq(0,300,50)) +
+        labs(title = "Scatterplot if duration has effect on the IMDB ratings", x = "Duration movies (in minutes)",
+             y = "IMDB rating")
+```
+
+The movies with a duration longer or equal to 150 minutes receive a higher rating than the movies which are shorter than 150 minutes. But this is mainly caused because of the fact that most of the produced movies have an average duration of 110-120 minutes. So it is not entirely representative. On the other hand, movies with a duration of 100 minutes or less are receiving bad ratings based on this scatter plot.  
+
+Are colored movies have a longer movie duration than movies which are black and white? Based on the density plot below, we notice that it is almost identical. Both are normally distributed, but the black and white movies have a slightly thicker tail on the right side related to the duration. This implies that the right tail is positively skewed. It can be derived as well that most movies around the 100-minute mark are colored. 
+
+```{r}
+ggplot(IMDB, aes(duration)) +
+  geom_density(aes(fill = factor(color)), alpha = 0.8) + 
+  labs(title = "Density plot by duration", x = "Duration",
+             y = "Density", fill = "Color") +
+  theme_minimal() + 
+  xlim(0, 250) 
+```
+If we want to know which countries produce the most and best movies, then we first need to filter it to the top 5 countries that produce the most movies: 
+
+```{r}
+top_5_country <- IMDB %>%
+  group_by(country) %>%
+  summarise(count = n()) %>%
+  top_n(5) %>%
+  arrange(desc(count))
+
+top_5_country
+```
+When the countries have been filtered to the top 5 countries with the most produced movies, then we will add the variables that we need to have for the scatter plot based on the selected variables: 
+
+```{r}
+top_5 <- IMDB %>%
+  select(country, imdb_score, gross) %>%
+  filter(country %in% top_5_country$country)
+
+top_5 <- mutate(top_5, gross_divide = top_5$gross / 10000)
+
+top_5
+```
+
+```{r}
+ggplot(data = top_5, mapping = aes(x = imdb_score, y = gross_divide)) + 
+  geom_point(aes(colour = country)) + 
+    facet_wrap(~ country) + 
+    labs(title = "Total turnover of the movies in the top 5 movie countries", x = "IMDB rating", y = "Gross (x 10.000)")
+```
+
+Based on this scatter plot, the USA produces the most movies with the highest turnover. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
