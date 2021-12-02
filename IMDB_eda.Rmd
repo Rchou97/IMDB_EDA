@@ -1,5 +1,5 @@
 ---
-title: "Assignment EDA"
+title: "IMDB - Exploratory Data Analysis"
 group members: Richard Chou
 output:
   html_document:
@@ -76,8 +76,6 @@ For the numerical values, we can plot a correlation matrix to see which variable
 
 ```{r}
 plot_correlate(IMDB)
-title('Correlation matrix IMDB
-      ')
 ```
 
 Based on the correlation matrix, we can notice the following items:
